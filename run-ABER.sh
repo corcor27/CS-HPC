@@ -8,7 +8,7 @@
 #SBATCH --mail-type=all
 #SBATCH --mail-user=cot13@aber.ac.uk
 
-conda activate AI_SUM
+anaconda3-launch activate AI_SUM
 
 python BruteForce.py
 
