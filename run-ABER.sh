@@ -3,13 +3,13 @@
 #SBATCH --job-name=grade_test
 #SBATCH --out=base_model.out.%J
 #SBATCH --err=base_model.err.%J
-#SBATCH --gres=gpu:1
-#SBATCH -p gpusmall
+#SBATCH --nodes=1
+#SBATCH -p cpu_small
 #SBATCH --mail-type=all
-#SBATCH --mail-user=cot12@aber.ac.uk
+#SBATCH --mail-user=cot13@aber.ac.uk
 
-conda activate /impacs/cot12/anaconda3/MSD
+conda activate AI_SUM
 
-python guobins_test.py
+python BruteForce.py
 
 
