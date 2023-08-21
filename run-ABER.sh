@@ -1,6 +1,6 @@
 #!/bin/bash --login
 #$ -cwd
-#SBATCH --job-name=grade_test
+#SBATCH --job-name=computational_test
 #SBATCH --out=base_model.out.%J
 #SBATCH --err=base_model.err.%J
 #SBATCH --nodes=1
