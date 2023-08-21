@@ -4,7 +4,7 @@
 #SBATCH --out=base_model.out.%J
 #SBATCH --err=base_model.err.%J
 #SBATCH --nodes=1
-#SBATCH -p cpu_small
+#SBATCH -p cpusmall
 #SBATCH --mail-type=all
 #SBATCH --mail-user=cot13@aber.ac.uk
 
