@@ -1,12 +1,18 @@
 # CS-HPC
 
+#git hub
 
+To download and add this repositry to the server entre: "git clone https://github.com/corcor27/CS-HPC.git"
 
 # Anaconda
 To start using the HPC cluster, you will likely have some required dependencies. Therefore its inportant that you set up your conda enviorment. 
 
 1) intiate the shell: to do this type the following; "anaconda3-launch conda init" you will now need to close the shell and reconect to the server. You will know it work when you log back in and you see the following: (base) cot13@slurm etc. where you wont have the (base) before
 2) You should never use your base enviroment going forward, as if theres a problem it will affect all your other enviroments. So now you need to create a new enviroment, to which you need to entre the following: "conda create --name AI_SUM python==3.9" please edit AI_SUM to the name of your enviroment.
-3) activate this new enviroment with "conda activate AI_SUM"
-4) 
+3) activate this new enviroment with "conda activate AI_SUM" You should see that the (base) now changes to (AI_SUM)
+4) You are ready to install your packages, to which you will want to use "conda install package" or "pip install package". Go through and install everything you believe you will need.
+
+# Running a job
+
+1) So start to submitting a job, you are going to need a batch file. Assuming that you cloned this repositry "run-aber.sh" is a batch file.
 
