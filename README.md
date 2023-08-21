@@ -18,4 +18,5 @@ To start using the HPC cluster, you will likely have some required dependencies.
 2) Now we need to find you a partition to run on, to see all nodes entre: "scontrol show nodes".
 3) Once you have selected a partition you will want to change the line in your batch file which specifies what node you want: "#SBATCH -p cpu_small" change the cpusmall part.
 4) Also change the email user name, such that you get notified whenever your job has finished.
+5) To submitted your job you want to entre the following: "sbatch run-ABER.sh" for example.
 
