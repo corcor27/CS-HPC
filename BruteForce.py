@@ -2,6 +2,9 @@ import pandas as pd
 import h5py
 import numpy as np
 from tqdm import tqdm
+import os
+
+os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
 
 
 def find_maxsum_of_subset(subset):
@@ -93,7 +96,7 @@ def brute_force_max_sum(sample_emb, num_proteins=10, full=False):
     """
     # Convert the dictionary to a list of tuples
     sample_tuples = list(sample_emb.items())
-
+    
     # Initialize a list to store the diversity scores for each protein
     diversity_scores = []
 
@@ -102,11 +105,14 @@ def brute_force_max_sum(sample_emb, num_proteins=10, full=False):
 
     # Initialize the progress bar
     progress_bar = tqdm(total=total_iterations, desc="Calculating diversity", unit="iteration")
-
+    print("total number of ints: {}".format(total_iterations))
+    count = 0
     # Iterate over each protein embedding and label
     for label, embedding in sample_tuples:
         # Initialize the diversity score for the current protein
         diversity_score = 0
+        count += 1
+        print(count)
 
         # Calculate the sum of distances between the current protein and all other proteins
         for other_label, other_embedding in sample_tuples:
@@ -138,8 +144,8 @@ def brute_force_max_sum(sample_emb, num_proteins=10, full=False):
 
 
 def main():
-    path = r'C:\Users\jhadz\Documents\A_university_and_projects\Postgraduate\Learnt Modules\Python_projects\Dissertation\Protein_emb.tsv'
-    path_h5 = r'C:\Users\jhadz\Documents\A_university_and_projects\Postgraduate\Dissertation\per_protein.h5'
+    path = 'Protein_emb.tsv'
+    path_h5 = 'perprotein.h5'
 
     # get set sample of embeddings
     enb = pd.read_csv(path, sep='\t')
