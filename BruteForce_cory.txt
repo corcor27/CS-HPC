@@ -1,0 +1,232 @@
+import pandas as pd
+import h5py
+import numpy as np
+from tqdm import tqdm
+import os
+import multiprocessing as mp
+from multiprocessing import Process, Manager
+from numba import jit, cuda
+import warnings
+warnings.filterwarnings('ignore')
+
+os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
+
+def compute_total_distance(row, df):
+    return df.apply(lambda x: np.linalg.norm(x - row), axis=1).sum()
+@jit(target_backend='cuda')
+def distance_cal_long(embeddings, emb):
+    distances = np.sqrt(((embeddings - emb) ** 2).sum(axis=1))
+    maxsum_distance = distances.sum()
+    return maxsum_distance
+
+@jit(target_backend='cuda')  
+def distance_cal(embedding, other_embedding):
+    distance = np.linalg.norm(embedding - other_embedding)
+    return distance
+
+
+
+def diversity_addtion(label, labels, ar, embedding):
+    for other_label, other_embedding in ar:
+        if label != other_label:
+            counter["{}".format(label)] += distance_cal(embedding, other_embedding)    
+
+def init_processes(d):
+    global counter
+
+    counter = d
+    
+def init_processes2(d):
+    global counter2
+
+    counter2 = d
+
+def find_maxsum_of_subset(subset):
+    """
+    :param subset: a dataframe where the first column is a label
+    :return: dataframe containing the protein labels and their max sum embedding distances and a list of labels
+    """
+    labels = subset.iloc[:, 0]
+    embeddings = subset.iloc[:, 1:]
+
+    # Initialize an empty list to store results of max sum euclidean distance
+
+    # For each embedding, calculate the sum of its Euclidean distances to all other embeddings
+    #maxsum_distances = embeddings.apply(lambda row: compute_total_distance(row, embeddings), axis=1)
+    maxsum_distances = []
+        #maxsum_distance = distances.sum()
+        #
+    for i, emb in embeddings.iterrows():
+        distances = distance_cal_long(embeddings, emb)
+
+        maxsum_distances.append(distances)
+    # Create a new dataframe to store the results
+    results = pd.DataFrame({
+        'Protein Label': labels,
+        'MaxSum Distance': maxsum_distances
+    })
+
+    # Sort the results by 'MaxSum Distance' in descending order
+    sorted_results = results.sort_values(by='MaxSum Distance', ascending=False).reset_index(drop=True)
+    
+    return sorted_results, labels
+
+
+def sample_embeddings(file_path, labels, keys=True, sample=False):
+    ''' extract dataset from h5 file
+
+    :param sample: if True take a sample from the dataset else extract full dataset
+    :param keys: if true return the data with protein labels
+    :param file_path: path to designated data file
+    :return: the extarcted data in either a list with no labels or a dict with labels
+    '''
+    count = 0
+    with h5py.File(file_path, "r") as file:
+        # Get the keys of the datasets in the H5 file
+        dataset_keys = list(file.keys())
+        
+        if sample:
+            # Convert labels to a set for faster lookup
+            labels_set = set(labels)
+            # Get keys from the H5 file that are in labels
+            wanted_keys = [k for k in dataset_keys if k in labels_set]
+
+            # Iterate over the random keys and extract the corresponding embeddings
+            if keys:
+                # Initialize an empty dict to store the sampled embeddings
+                sampled_embeddings = {}
+                for key in wanted_keys:
+                    embeddings = file[key][:]
+                    sampled_embeddings[key] = embeddings
+
+            else:
+                # Initialize an empty list to store the sampled embeddings
+                sampled_embeddings = []
+                for key in wanted_keys:
+                    embeddings = file[key][:]
+                    sampled_embeddings.append(embeddings)
+
+
+        else:
+            if keys:
+                # Initialize an empty dict to store the sampled embeddings
+                sampled_embeddings = {}
+                for key in dataset_keys:
+                    embeddings = file[key][:]
+                    sampled_embeddings[key] = embeddings
+
+            else:
+                # Initialize an empty list to store the sampled embeddings
+                sampled_embeddings = []
+                for key in dataset_keys:
+                    embeddings = file[key][:]
+                    sampled_embeddings.append(embeddings)
+
+            
+    #l = list(sampled_embeddings.keys())
+    #print(len(l))
+    return sampled_embeddings
+
+
+    
+def brute_force_max_sum(sample_emb, num_proteins=10, full=False):
+    """ Calculate the brute force max sum of euclidean distances between embeddings
+
+    :param sample_emb: dictionary containing an embedding label and embedding values
+    :param num_proteins: how many diverse embeddings to select for the final subset
+    :param full: whether the full dataset or a sample of the dataset is being used, if full save most diverse to a csv
+    :return: The list of embedding labels of the most diverse embeddings
+    """
+    # Convert the dictionary to a list of tuples
+    sample_tuples = list(sample_emb.items())
+    rand_list = list(sample_emb.keys())
+    
+    # Initialize a list to store the diversity scores for each protein
+
+    # Compute the total number of iterations
+    total_iterations = len(sample_tuples) * (len(sample_tuples) - 1)
+
+    # Initialize the progress bar
+    #progress_bar = tqdm(total=total_iterations, desc="Calculating diversity", unit="iteration")
+    print("total number of ints: {}".format(total_iterations))
+    manager = Manager()
+    num_workers = mp.cpu_count() - 6
+    
+        
+    counter = manager.dict()
+        
+    #jobs = []
+    for item in rand_list:
+        counter["{}".format(item)] = 0
+
+        
+    with mp.Pool(num_workers, initializer=init_processes, initargs=(counter,)) as p:
+        results = p.starmap(diversity_addtion, [(label, rand_list, sample_tuples, embedding) for label, embedding in sample_tuples])
+
+    # Close the progress bar
+    #progress_bar.close()
+    #diversity_scores = list(counter.items())
+    # Sort the diversity scores in descending order
+    #diversity_scores.sort(reverse=True)
+
+    # If 'full' is True, save the results to a CSV file
+    #if full:
+        #df = pd.DataFrame(diversity_scores, columns=['MaxSum Value', 'Protein Label'])
+        #df.to_csv('top_proteins.csv', index=False)
+
+    # Extract the top 'num_proteins' most diverse proteins
+    #top_proteins = [protein_label for _, protein_label in diversity_scores[:num_proteins]]
+    top_proteins = pd.DataFrame.from_dict(counter, orient = 'index')
+    top_proteins = top_proteins.reset_index()
+    top_proteins.rename(columns = {'index':'Protein_Label', 0:"MaxSum_Distance"}, inplace = True)
+    top_proteins = top_proteins.sort_values(['MaxSum_Distance'], ascending=[False])
+    top_proteins = top_proteins.reset_index()
+    top_proteins.drop(['index'], axis=1)
+    
+    return top_proteins
+
+
+def main():
+    path = 'Protein_emb.tsv'
+    path_h5 = 'perprotein.h5'
+
+    # get set sample of embeddings
+    enb = pd.read_csv(path, sep='\t')
+    #print(enb)
+
+    subset = enb.iloc[:1000, :]
+    #print(subset)
+
+    # get max sum of the set sample of embeddings
+    subset_maxsum, labels = find_maxsum_of_subset(subset)
+    print(subset_maxsum)
+
+    # validate brute force function
+    embeddings = sample_embeddings(path_h5, labels, True, True)
+    top_proteins = pd.DataFrame.from_dict(embeddings, orient = 'index')
+    top_proteins = top_proteins.reset_index()
+    top_proteins.rename(columns = {'index':'Protein_Label'}, inplace = True)
+    l = list(top_proteins.keys())
+    for ii in l[1:]:
+        count_nan = top_proteins[ii].isnull().sum()
+        if count_nan > 0:
+            print('Number of NaN values present: ' + str(count_nan))
+        
+    
+    
+    
+    #top_proteins = brute_force_max_sum(embeddings, 10)
+    #print(top_proteins)
+
+    ## calculate the brute force MaxSum of euclidean distances for entire dataset
+    #full_embeddings = sample_embeddings(path_h5, labels, True)
+    # num_keys = len(full_embeddings)
+    # print(num_keys)
+
+    #top1000_proteins = brute_force_max_sum(full_embeddings, 1000, True)
+
+
+
+
+if __name__ == "__main__":
+    main()
